@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace EcommerceApiGatewayCMS.Models.ViewModels.Accounts
+namespace EcommerceIdentityServerCMS.Models.ViewModels.Accounts
 {
     public class SignInViewModel
     {

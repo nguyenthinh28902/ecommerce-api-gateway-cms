@@ -1,6 +1,6 @@
 ﻿using Duende.IdentityServer.Models;
 
-namespace EcommerceApiGatewayCMS.Config
+namespace EcommerceIdentityServerCMS.Config
 {
     public static class IdentityResourcesConfig
     {

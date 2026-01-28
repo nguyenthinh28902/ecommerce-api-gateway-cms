@@ -1,8 +1,8 @@
 ﻿using Duende.IdentityServer;
-using EcommerceApiGatewayCMS.Models;
-using EcommerceApiGatewayCMS.Models.Settings;
+using EcommerceIdentityServerCMS.Models;
+using EcommerceIdentityServerCMS.Models.Settings;
 
-namespace EcommerceApiGatewayCMS.Common.Helpers
+namespace EcommerceIdentityServerCMS.Common.Helpers
 {
     public static class AuthenticationExtensions
     {

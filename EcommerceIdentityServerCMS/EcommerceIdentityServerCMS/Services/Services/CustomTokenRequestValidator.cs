@@ -1,9 +1,9 @@
 ﻿using Duende.IdentityServer.Validation;
-using EcommerceApiGatewayCMS.Models.DTOs;
+using EcommerceIdentityServerCMS.Models.DTOs;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
-namespace EcommerceApiGatewayCMS.Services.Services
+namespace EcommerceIdentityServerCMS.Services.Services
 {
     public class CustomTokenRequestValidator : ICustomTokenRequestValidator
     {

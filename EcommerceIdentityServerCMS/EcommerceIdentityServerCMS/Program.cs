@@ -1,4 +1,5 @@
-﻿using EcommerceApiGatewayCMS.Common.Helpers;
+﻿using EcommerceIdentityServerCMS.Common.Helpers;
+using EcommerceIdentityServerCMS.Common.Helpers.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 

@@ -1,7 +1,7 @@
-﻿using EcommerceApiGatewayCMS.Models.ViewModels.Accounts;
+﻿using EcommerceIdentityServerCMS.Models.ViewModels.Accounts;
 using Microsoft.AspNetCore.Mvc;
 
-namespace EcommerceApiGatewayCMS.Controllers
+namespace EcommerceIdentityServerCMS.Controllers
 {
     public class LoginController : Controller
     {

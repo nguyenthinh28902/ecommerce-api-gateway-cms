@@ -1,12 +1,13 @@
-﻿using EcommerceApiGatewayCMS.Config;
-using EcommerceApiGatewayCMS.Services.Services;
+﻿using EcommerceIdentityServerCMS.Config;
+using EcommerceIdentityServerCMS.Services.Services;
 
-namespace EcommerceApiGatewayCMS.Common.Helpers
+namespace EcommerceIdentityServerCMS.Common.Helpers.Identity
 {
     public static class AuthenticationIdentityServer
     {
         public static IServiceCollection AddAuthenticationIdentityServer(this IServiceCollection services, IConfiguration configuration)
         {
+            var EcommerceVueCMS = configuration["EcommerceVueCMS:BaseUrl"];
             services.AddIdentityServer(options =>
             {
                 options.KeyManagement.Enabled = false;
@@ -18,7 +19,7 @@ namespace EcommerceApiGatewayCMS.Common.Helpers
             .AddInMemoryIdentityResources(IdentityResourcesConfig.Get())
             .AddInMemoryApiScopes(ApiScopes.Get())
             .AddInMemoryApiResources(ApiResources.Get())
-            .AddInMemoryClients(Clients.Get())
+            .AddInMemoryClients(Clients.Get(EcommerceVueCMS))
             .AddCustomTokenRequestValidator<CustomTokenRequestValidator>()
             .AddDeveloperSigningCredential();
 

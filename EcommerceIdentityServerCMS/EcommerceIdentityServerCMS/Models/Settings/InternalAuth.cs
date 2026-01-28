@@ -1,4 +1,4 @@
-﻿namespace EcommerceApiGatewayCMS.Models.Settings
+﻿namespace EcommerceIdentityServerCMS.Models.Settings
 {
     public class InternalAuth
     {

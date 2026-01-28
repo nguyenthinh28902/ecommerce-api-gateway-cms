@@ -1,6 +1,6 @@
-﻿using EcommerceApiGatewayCMS.Models.Settings;
+﻿using EcommerceIdentityServerCMS.Models.Settings;
 
-namespace EcommerceApiGatewayCMS.Common.Helpers
+namespace EcommerceIdentityServerCMS.Common.Helpers
 {
     public static class ConfigAppSetting
     {

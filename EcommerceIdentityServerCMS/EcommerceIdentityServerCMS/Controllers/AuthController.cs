@@ -1,27 +1,50 @@
-﻿using EcommerceApiGatewayCMS.Models.ViewModels.Accounts;
-using EcommerceApiGatewayCMS.Services.Interfaces;
+﻿using Duende.IdentityServer.Services;
+using EcommerceIdentityServerCMS.Models.DTOs.SignIn;
+using EcommerceIdentityServerCMS.Models.ViewModels.Accounts;
+using EcommerceIdentityServerCMS.Services.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
-namespace EcommerceApiGatewayCMS.Controllers
+namespace EcommerceIdentityServerCMS.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
     public class AuthController : ControllerBase
     {
+        private readonly IIdentityServerInteractionService _interaction;
         private readonly IAuthService _authService;
-        public AuthController(IAuthService authService) { 
+        public AuthController(IAuthService authService, IIdentityServerInteractionService interaction)
+        {
             _authService = authService;
+            _interaction = interaction;
         }
 
         [HttpPost("dang-nhap")]
         public async Task<IActionResult> SignIn([FromForm] SignInViewModel signInViewModel)
         {
             var result = await _authService.AuthenticateInternal(signInViewModel);
-            await _authService.SignIn(result);
+            var context = await _interaction.GetAuthorizationContextAsync(signInViewModel.ReturnUrl);
+            var link = Url.Action(controller: "Login", action: "Error", values: signInViewModel.ReturnUrl ?? "/");
+            if (result == null)
+            {
+                return Redirect(link);
+            }
+            await _authService.SignInIdentityUserAsync(result);
+            if (context != null)
+            {
+                return Redirect(signInViewModel.ReturnUrl);
+            }
 
-            return Redirect(signInViewModel.ReturnUrl);
+            return Redirect(link);
+        }
+
+        [HttpPost("trao-doi-token")]
+        public async Task<IActionResult> Exchange([FromBody] ExchangeRequest request)
+        {
+            var resultToken = await _authService.ExchangeCodeForExternalToken(request);
+
+            return Ok(resultToken);
         }
     }
 }

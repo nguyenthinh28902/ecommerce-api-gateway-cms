@@ -1,88 +1,191 @@
-﻿
-using EcommerceApiGatewayCMS.Models.DTOs;
-using EcommerceApiGatewayCMS.Services.Interfaces;
+﻿using EcommerceIdentityServerCMS.Common.Exceptions;
+using EcommerceIdentityServerCMS.Models;
+using EcommerceIdentityServerCMS.Models.DTOs.SignIn;
+using EcommerceIdentityServerCMS.Models.Settings;
+using EcommerceIdentityServerCMS.Services.Interfaces;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 
-namespace EcommerceApiGatewayCMS.Services.Services
+namespace EcommerceIdentityServerCMS.Services.Services
 {
     public class InternalTokenService : IInternalTokenService
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
+        private readonly IDictionary<string, ServiceAuthOptions> _configs;
         private readonly ILogger<InternalTokenService> _logger;
 
-        public InternalTokenService(HttpClient httpClient, IConfiguration configuration, ILogger<InternalTokenService> logger)
+        public InternalTokenService(
+            HttpClient httpClient,
+            IConfiguration configuration,
+            ILogger<InternalTokenService> logger,
+            IOptions<Dictionary<string, ServiceAuthOptions>> options)
         {
             _httpClient = httpClient;
             _configuration = configuration;
             _logger = logger;
+            _configs = options.Value;
         }
 
-        // Hàm cũ: Lấy token hệ thống thuần túy
-        public async Task<string> GetSystemTokenAsync()
+        // =========================
+        // PUBLIC API
+        // =========================
+
+        public Task<TokenResponseDto?> GetSystemTokenAsync(string serviceName)
         {
-            return await RequestTokenAsync(null);
+            return RequestTokenAsync(serviceName, null);
         }
 
-        // Hàm mới: Lấy token có định danh User
-        public async Task<string> GetUserScopedTokenAsync(SignInResponseDto? signInResponseDto)
+        public Task<TokenResponseDto?> GetUserScopedTokenAsync(
+            string serviceName,
+            SignInResponseDto userContext)
         {
-            // Truyền userId vào để đính kèm tham số tùy chỉnh
-            return await RequestTokenAsync(signInResponseDto);
+            return RequestTokenAsync(serviceName, userContext);
         }
-
-        // Hàm dùng chung để tránh lặp code
-        private async Task<string> RequestTokenAsync(SignInResponseDto? signInResponseDto)
+        public async Task<TokenResponseDto?> ExchangeAuthorizationCodeAsync(
+            string serviceName,
+            ExchangeRequest exchangeRequest
+            )
         {
+            if (string.IsNullOrWhiteSpace(exchangeRequest.Code))
+                throw new UnauthorizedException("Thiếu authorization_code");
+
+            if (!_configs.TryGetValue(serviceName, out var cfg))
+                throw new UnauthorizedException($"Không có cấu hình OAuth cho {serviceName}");
+
+            var form = new Dictionary<string, string>
+            {
+                ["grant_type"] = "authorization_code",
+                ["client_id"] = cfg.ClientId,
+                ["client_secret"] = cfg.ClientSecret,
+                ["code"] = exchangeRequest.Code,
+                ["redirect_uri"] = exchangeRequest.CodeVerifier,
+                ["redirect_uri"] = cfg.RedirectUri
+            };
+
+            HttpResponseMessage response;
             try
             {
-                _logger.LogInformation("thông tin test {a1}", _configuration["InternalAuth:TokenEndpoint"]);
-                _logger.LogInformation($"thong tin test {_configuration["InternalAuth:TokenEndpoint"]}");
-                _logger.LogInformation("kết thúc");
-                var form = new Dictionary<string, string>
-                {
-                    ["grant_type"] = "client_credentials",
-                    ["client_id"] = "APIEcommerceIdentityCMS.internal",
-                    ["client_secret"] = "secret",
-                    ["scope"] = "EcommerceIdentityCMS.internal"
-                };
-
-                // Nếu có userId, đính kèm vào tham số 'user_id' 
-                // để CustomTokenRequestValidator bên IdentityServer có thể đọc được
-                if (signInResponseDto != null)
-                {
-                    form["custom_user_id"] = signInResponseDto.Id.ToString();
-                    form["custom_email"] = signInResponseDto.Email.ToString();
-                    form["custom_role"] = signInResponseDto.Role.ToString();
-                    form["custom_WorkplaceId"] = signInResponseDto.WorkplaceId.ToString();
-                }
-
-                var response = await _httpClient.PostAsync(
+                response = await _httpClient.PostAsync(
                     _configuration["InternalAuth:TokenEndpoint"],
-                    new FormUrlEncodedContent(form));
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var error = await response.Content.ReadAsStringAsync();
-                    throw new Exception($"Lấy Token thất bại: {error}");
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                var token = JsonSerializer.Deserialize<TokenResponseDto>(content, new JsonSerializerOptions
-                {
-                    PropertyNameCaseInsensitive = true
-                });
-                return token?.AccessToken ?? string.Empty;
+                    new FormUrlEncodedContent(form)
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                        "HTTP request failed when calling {Service}",
-                        "CustomerService");
+                    "Failed to exchange authorization_code for service {Service}",
+                    serviceName);
                 throw;
             }
 
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning(
+                    "Token endpoint rejected code for {Service}: {Error}",
+                    serviceName,
+                    error);
 
+                throw new UnauthorizedException("authorization_code không hợp lệ hoặc đã hết hạn");
+            }
+
+            var json = await response.Content.ReadAsStringAsync();
+
+            var token = JsonSerializer.Deserialize<TokenResponseDto>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (!string.IsNullOrEmpty(token?.AccessToken))
+                token.IsLogged = true;
+
+            return token;
+        }
+
+
+        // =========================
+        // CORE
+        // =========================
+
+        private async Task<TokenResponseDto?> RequestTokenAsync(
+            string serviceName,
+            SignInResponseDto? userContext)
+        {
+            if (!_configs.TryGetValue(serviceName, out var cfg))
+                throw new InvalidOperationException($"No auth config for service: {serviceName}");
+
+            var form = BuildTokenRequestForm(cfg, userContext);
+
+            HttpResponseMessage response;
+            try
+            {
+                response = await _httpClient.PostAsync(
+                    _configuration["InternalAuth:TokenEndpoint"],
+                    new FormUrlEncodedContent(form));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Token request failed for service {Service}", serviceName);
+                throw;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                _logger.LogWarning(
+                    "Token endpoint rejected request for {Service}: {Error}",
+                    serviceName,
+                    error);
+
+                throw new ForbiddenException("Không có quyền truy cập service này");
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var token = JsonSerializer.Deserialize<TokenResponseDto>(
+                content,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (!string.IsNullOrEmpty(token?.AccessToken))
+                token.IsLogged = true;
+
+            return token;
+        }
+
+        // =========================
+        // HELPERS
+        // =========================
+
+        private static Dictionary<string, string> BuildTokenRequestForm(
+            ServiceAuthOptions cfg,
+            SignInResponseDto? userContext)
+        {
+            var form = new Dictionary<string, string>
+            {
+                ["grant_type"] = cfg.GrantType,
+                ["client_id"] = cfg.ClientId,
+                ["client_secret"] = cfg.ClientSecret
+            };
+
+            // system-to-system token
+            if (userContext == null)
+            {
+                if (!string.IsNullOrEmpty(cfg.Scope))
+                    form["scope"] = cfg.Scope;
+
+                return form;
+            }
+
+            // user-scoped token
+            form[ClaimCustom.custom_user_payload.ToString()] =
+                JsonSerializer.Serialize(userContext);
+
+            if (userContext.Scopes?.Count > 0)
+            {
+                form["scope"] = string.Join(" ", userContext.Scopes);
+            }
+
+            return form;
         }
     }
 }

@@ -1,7 +1,7 @@
-﻿using EcommerceApiGatewayCMS.Services.Interfaces;
-using EcommerceApiGatewayCMS.Services.Services;
+﻿using EcommerceIdentityServerCMS.Services.Interfaces;
+using EcommerceIdentityServerCMS.Services.Services;
 
-namespace EcommerceApiGatewayCMS.Common.Helpers
+namespace EcommerceIdentityServerCMS.Common.Helpers
 {
     public static class ServiceDI
     {
