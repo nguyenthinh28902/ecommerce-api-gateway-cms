@@ -1,0 +1,77 @@
+﻿using Ecommerce.ApiGateway.Cms.Models;
+using Ecommerce.ApiGateway.Cms.Models.Settings;
+using Ecommerce.ApiGateway.Cms.Service.Interfaces;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
+
+namespace Ecommerce.ApiGateway.Cms.Service.Services
+{
+    public class TokenClientService : ITokenClientService
+    {
+        private readonly IHttpClientFactory _httpClientFactory;
+        private readonly IDistributedCache _cache;
+        private readonly IdentityServerOptions _options;
+        private const string CacheKey = "gateway_internal_token";
+
+        public TokenClientService(
+            IHttpClientFactory httpClientFactory,
+            IDistributedCache cache,
+            IOptions<IdentityServerOptions> options)
+        {
+            _httpClientFactory = httpClientFactory;
+            _cache = cache;
+            _options = options.Value;
+        }
+
+        public async Task<string> GetSystemTokenAsync()
+        {
+            // 1. Kiểm tra Token trong Redis
+            var cachedToken = await _cache.GetStringAsync(CacheKey);
+            if (!string.IsNullOrEmpty(cachedToken)) return cachedToken;
+
+            // 2. Chuẩn bị request xin token mới
+            var client = _httpClientFactory.CreateClient();
+
+            var requestData = new Dictionary<string, string>
+            {
+            { "grant_type", "client_credentials" },
+            { "client_id", _options.ClientId },
+            { "client_secret", _options.ClientSecret },
+            { "scope", _options.Scopes }
+        };
+
+            var tokenUrl = $"{_options.Authority.TrimEnd('/')}/connect/token";
+
+            try
+            {
+                var response = await client.PostAsync(tokenUrl, new FormUrlEncodedContent(requestData));
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorDetails = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Lỗi lấy token hệ thống: {errorDetails}");
+                }
+
+                var tokenResult = await response.Content.ReadFromJsonAsync<TokenResponse>();
+
+                if (tokenResult != null && !string.IsNullOrEmpty(tokenResult.AccessToken))
+                {
+                    // 3. Lưu vào Cache (Trừ 30 giây trừ hao thời gian mạng)
+                    var cacheOptions = new DistributedCacheEntryOptions {
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(tokenResult.ExpiresIn - 30)
+                    };
+
+                    await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
+                    return tokenResult.AccessToken;
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log lỗi tại đây (Sử dụng ILogger)
+                throw new Exception("Hệ thống không thể xác thực nội bộ.", ex);
+            }
+
+            return string.Empty;
+        }
+    }
+}

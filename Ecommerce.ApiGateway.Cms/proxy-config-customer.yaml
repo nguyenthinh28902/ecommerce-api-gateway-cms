@@ -1,0 +1,14 @@
+ReverseProxy:
+  Routes:
+    user_service_api_route:
+      ClusterId: "user_service_cluster"
+      AuthorizationPolicy: "GatewayAuthPolicy"
+      Match:
+        Path: "/api/tai-khoan/{**catch-all}"
+      Metadata:
+        serviceName: "APIGatewayCMSService"
+  Clusters:
+    user_service_cluster:
+      Destinations:
+        user_service_node:
+          Address: "https://localhost:7146"
