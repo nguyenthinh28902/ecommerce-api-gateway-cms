@@ -1,5 +1,5 @@
-﻿using Duende.IdentityServer;
-using EcommerceIdentityServerCMS.Models;
+﻿using EcommerceIdentityServerCMS.Models;
+using EcommerceIdentityServerCMS.Models.Enums;
 using EcommerceIdentityServerCMS.Models.Settings;
 
 namespace EcommerceIdentityServerCMS.Common.Helpers
@@ -9,53 +9,37 @@ namespace EcommerceIdentityServerCMS.Common.Helpers
         public static IServiceCollection AddAuthenticationExtensions(this IServiceCollection services, IConfiguration configuration)
         {
 
-            var _jwtSettings = configuration
-         .GetSection("Jwt")
-         .Get<JwtSettings>()
-         ?? throw new InvalidOperationException("JwtSettings missing");
 
+            // 1. Kiểm tra cấu hình rõ ràng hơn
+            var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
+                ?? throw new InvalidOperationException("Config Error: 'JwtSettings' is missing in appsettings.json");
 
-            var _internalAuth = configuration
-         .GetSection("InternalAuth")
-         .Get<InternalAuth>()
-         ?? throw new InvalidOperationException("JwtSettings missing");
-
-            services.AddAuthentication(options =>
-            {
-                options.DefaultScheme = IdentityServerConstants.DefaultCookieAuthenticationScheme;
-                options.DefaultAuthenticateScheme = IdentityServerConstants.DefaultCookieAuthenticationScheme;
-                options.DefaultChallengeScheme = IdentityServerConstants.DefaultCookieAuthenticationScheme;
-            }).AddCookie("Cookies", options =>
-            {
-                options.Cookie.Name = "auth_cookie";
-                options.Cookie.SameSite = SameSiteMode.None; // Quan trọng
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Quan trọng
-            }).AddJwtBearer("Bearer", options =>
-            {
-                options.RequireHttpsMetadata = false;
-                // URL IdentityServer
-                options.Authority = _jwtSettings.Issuer;
-                options.Audience = _internalAuth.ClientId;
-                options.RequireHttpsMetadata = true;
-
-                // Nếu muốn check audience
-                options.TokenValidationParameters.ValidateAudience = false;
-            });
-            services.ConfigureApplicationCookie(options =>
-            {
-                options.Cookie.SameSite = SameSiteMode.None; // Bắt buộc cho cross-site HTTPS
-                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Chỉ gửi qua HTTPS
-            });
+            // 2. Cấu hình CORS (Giữ nguyên vì Nuxt cần cái này)
             services.AddCors(options =>
             {
                 options.AddPolicy(AuthEnum.AllowNuxtCMS.ToString(), policy =>
                 {
-                    policy.WithOrigins(configuration["EcommerceVueCMS:BaseUrl"] ?? string.Empty) // URL của Nuxt
-                          .AllowAnyHeader()
-                          .AllowAnyMethod()
-                          .AllowCredentials(); // BẮT BUỘC phải có cái này để gửi Cookie
+                    var nuxtUrl = configuration["EcommerceMVCCMS:BaseUrl"];
+                    if (!string.IsNullOrEmpty(nuxtUrl))
+                    {
+                        policy.WithOrigins(nuxtUrl)
+                              .AllowAnyHeader()
+                              .AllowAnyMethod()
+                              .AllowCredentials();
+                    }
                 });
             });
+            var hours = (int)ExpireTimeSpanSignIn.Medium; // hours = 8
+            // 3. Cấu hình Cookie (Để IdentityServer tương tác tốt với trình duyệt hiện đại)
+            services.ConfigureApplicationCookie(options =>
+            {
+                options.Cookie.Name = "identity_auth_session";
+                options.Cookie.SameSite = SameSiteMode.None; // Cho phép Cross-site (Nuxt gọi Identity)
+                options.Cookie.SecurePolicy = CookieSecurePolicy.Always; // Bắt buộc HTTPS
+                options.ExpireTimeSpan = TimeSpan.FromHours(hours); // Phiên đăng nhập sống trong 8 giờ
+                options.SlidingExpiration = true; // Tự động gia hạn nếu user còn hoạt động
+            });
+
             return services;
         }
     }

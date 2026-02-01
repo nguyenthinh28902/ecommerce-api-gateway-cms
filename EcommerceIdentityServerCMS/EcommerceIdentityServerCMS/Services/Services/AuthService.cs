@@ -1,5 +1,4 @@
 ﻿using Duende.IdentityServer;
-using Duende.IdentityServer.Services;
 using EcommerceIdentityServerCMS.Common.Exceptions;
 using EcommerceIdentityServerCMS.Models;
 using EcommerceIdentityServerCMS.Models.DTOs.SignIn;
@@ -10,13 +9,10 @@ using EcommerceIdentityServerCMS.Services.Interfaces;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
-using System.Data;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text.Json;
-using static Duende.IdentityServer.Models.IdentityResources;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace EcommerceIdentityServerCMS.Services.Services
 {
@@ -49,7 +45,7 @@ namespace EcommerceIdentityServerCMS.Services.Services
         public async Task<SignInResponseDto?> AuthenticateInternal(SignInViewModel signInViewModel)
         {
             var token = await _tokenService.GetSystemTokenAsync(ServiceAuth.APIGatewayCMSService.ToString());
-            _logger.LogInformation($"token {token}");
+            _logger.LogInformation($"token {token.AccessToken}");
             if (token == null) throw new UnauthorizedException("Yêu cầu không được chấp nhận");
             _httpClient.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", token.AccessToken);
@@ -69,46 +65,39 @@ namespace EcommerceIdentityServerCMS.Services.Services
 
         public async Task SignInIdentityUserAsync(SignInResponseDto user)
         {
-            var httpContext = _httpContextAccessor.HttpContext
-                ?? throw new UnauthorizedException("Không có HttpContext");
-
+            // 1. Chỉ giữ lại những Claim tối thiểu để định danh
             var claims = new List<Claim>
-    {
-        // Duende yêu cầu Claim "sub" để định danh user
-        new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-        new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
-        new Claim("wid", user.WorkplaceId.ToString() ?? ""), // Đơn giản hóa key nếu được
-    };
-
-            if (user.Roles != null)
             {
-                foreach (var role in user.Roles)
-                {
-                    claims.Add(new Claim(ClaimTypes.Role, role));
-                }
-            }
-
-            var identity = new ClaimsIdentity(
-                claims,
-                IdentityServerConstants.DefaultCookieAuthenticationScheme,
-                JwtRegisteredClaimNames.Name, // Cấu hình cho thuộc tính Name
-                ClaimTypes.Role               // Cấu hình cho thuộc tính Role
-            );
-
-            var principal = new ClaimsPrincipal(identity);
-
-            // QUAN TRỌNG: Thiết lập Properties để giữ phiên làm việc ổn định
-            var props = new AuthenticationProperties
-            {
-                IsPersistent = true,
-                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1)
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Email, user.Email ?? ""),
             };
 
-            await httpContext.SignInAsync(
-                IdentityServerConstants.DefaultCookieAuthenticationScheme,
-                principal,
-                props // Đưa properties vào đây
-            );
+            // 2. Đóng gói toàn bộ thông tin User thành JSON để lưu Cache
+            // UserCacheModel là class chứa đầy đủ: Id, Roles, WorkplaceId, Permissions, v.v...
+            var userCache = new UserCacheModel {
+                Id = user.Id,
+                Email = user.Email,
+                Roles = user.Roles,
+                WorkplaceId = user.WorkplaceId,
+                // Có thể thêm nhiều thông tin khác ở đây mà không sợ nặng Token
+            };
+
+            var cacheKey = $"user_info:{user.Id}"; // Phải khớp với Key mà Gateway sẽ đọc
+            var jsonProvider = JsonSerializer.Serialize(userCache);
+
+            // Lưu vào Redis (Set thời gian hết hạn bằng hoặc dài hơn Token một chút)
+            var hours = (int)ExpireTimeSpanSignIn.Medium;
+            await _cache.SetStringAsync(cacheKey, jsonProvider, new DistributedCacheEntryOptions {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(hours)
+            });
+
+            // 3. Thực hiện SignIn với bộ Claim tối thiểu
+            var isUser = new IdentityServerUser(user.Id.ToString()) {
+                DisplayName = user.Id.ToString(),
+                AdditionalClaims = claims
+            };
+
+            await _httpContextAccessor.HttpContext.SignInAsync(isUser);
         }
 
         public async Task<Result<TokenResponseDto?>> ExchangeCodeForExternalToken(ExchangeRequest exchangeRequest)
@@ -120,7 +109,7 @@ namespace EcommerceIdentityServerCMS.Services.Services
             if (string.IsNullOrEmpty(appName))
                 throw new UnauthorizedException("Thiếu X-App-Name");
 
-            
+
 
             // 🔥 Exchange authorization_code → access_token (IdentityServer)
             var token = await _tokenService.ExchangeAuthorizationCodeAsync(

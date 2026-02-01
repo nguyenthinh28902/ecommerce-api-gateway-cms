@@ -1,5 +1,4 @@
 ﻿using EcommerceIdentityServerCMS.Common.Exceptions;
-using EcommerceIdentityServerCMS.Models;
 using EcommerceIdentityServerCMS.Models.DTOs.SignIn;
 using EcommerceIdentityServerCMS.Models.Settings;
 using EcommerceIdentityServerCMS.Services.Interfaces;
@@ -53,14 +52,13 @@ namespace EcommerceIdentityServerCMS.Services.Services
             if (!_configs.TryGetValue(serviceName, out var cfg))
                 throw new UnauthorizedException($"Không có cấu hình OAuth cho {serviceName}");
 
-            var form = new Dictionary<string, string>
-            {
+            var form = new Dictionary<string, string> {
                 ["grant_type"] = "authorization_code",
                 ["client_id"] = cfg.ClientId,
                 ["client_secret"] = cfg.ClientSecret,
                 ["code"] = exchangeRequest.Code,
-                ["redirect_uri"] = exchangeRequest.CodeVerifier,
-                ["redirect_uri"] = cfg.RedirectUri
+                ["code_verifier"] = exchangeRequest.CodeVerifier,
+                ["redirect_uri"] = exchangeRequest.RedirectUri
             };
 
             HttpResponseMessage response;
@@ -157,34 +155,22 @@ namespace EcommerceIdentityServerCMS.Services.Services
         // =========================
 
         private static Dictionary<string, string> BuildTokenRequestForm(
-            ServiceAuthOptions cfg,
-            SignInResponseDto? userContext)
+         ServiceAuthOptions cfg,
+         SignInResponseDto? userContext)
         {
-            var form = new Dictionary<string, string>
-            {
+            var form = new Dictionary<string, string> {
                 ["grant_type"] = cfg.GrantType,
                 ["client_id"] = cfg.ClientId,
                 ["client_secret"] = cfg.ClientSecret
             };
 
-            // system-to-system token
+            // TRƯỜNG HỢP 1: System-to-System (S2S) - Giữ nguyên
             if (userContext == null)
             {
                 if (!string.IsNullOrEmpty(cfg.Scope))
                     form["scope"] = cfg.Scope;
 
-                return form;
             }
-
-            // user-scoped token
-            form[ClaimCustom.custom_user_payload.ToString()] =
-                JsonSerializer.Serialize(userContext);
-
-            if (userContext.Scopes?.Count > 0)
-            {
-                form["scope"] = string.Join(" ", userContext.Scopes);
-            }
-
             return form;
         }
     }

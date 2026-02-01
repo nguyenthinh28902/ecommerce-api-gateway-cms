@@ -1,0 +1,62 @@
+﻿@using EcommerceIdentityServerCMS.Models.ViewModels.Accounts
+@model LogoutViewModel
+
+    @{
+        Layout = null;
+        ViewData["Title"] = "Đăng xuất hệ thống";
+    }
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"]</title>
+
+    <link rel="shortcut icon" href="~/favicon.ico" type="image/x-icon" />
+
+    <link rel="icon"
+          href="https://drive.google.com/uc?export=view&id=1DQEDzJhz8wA1cQT2vSXTTpUNfeExkD4I"
+          type="image/png" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#e0f7f0] to-[#ffffff] font-sans text-[#2c3e50]">
+
+    <div class="bg-white p-10 rounded-[40px] shadow-2xl w-full max-w-[500px] text-center border border-white">
+
+        <div class="flex justify-center mb-6">
+            <div class="bg-[#f0fdf9] p-6 rounded-full">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-[#42d392]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                </svg>
+            </div>
+        </div>
+
+        <h1 class="text-[#42d392] text-3xl font-extrabold mb-2 tracking-tight">Xác nhận đăng xuất</h1>
+        <p class="text-gray-400 italic mb-8">Bạn có chắc chắn muốn kết thúc phiên làm việc?</p>
+
+        <div class="bg-[#f0fdf9] border border-[#e2f2ed] rounded-3xl p-8 mb-6">
+            <p class="text-gray-600 text-sm mb-8 text-center">
+                Mọi thay đổi chưa lưu có thể sẽ bị mất. Bạn sẽ được điều hướng về trang chủ sau khi thực hiện.
+            </p>
+
+            @using (Html.BeginForm("ConfirmLogout", "Auth", FormMethod.Post, new { @class = "space-y-4" }))
+            {
+                @Html.AntiForgeryToken()
+                @Html.HiddenFor(m => m.LogoutId)
+
+                <button type="submit" class="w-full bg-[#00dc82] hover:bg-[#00c171] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition duration-300 shadow-lg shadow-green-100">
+                    Đồng ý đăng xuất
+                </button>
+
+                <a href="javascript:history.back()" class="block w-full text-gray-500 hover:text-gray-700 font-medium py-2 transition duration-200 text-sm">
+                    Quay lại
+                </a>
+            }
+        </div>
+
+        <p class="text-[10px] text-gray-400 font-bold tracking-widest uppercase">
+            © 2026 Ecommerce CMS - Powered by <span class="text-[#42d392]">Vue</span> & <span class="text-[#00dc82]">Nuxt 4</span>
+        </p>
+    </div>
+</div>

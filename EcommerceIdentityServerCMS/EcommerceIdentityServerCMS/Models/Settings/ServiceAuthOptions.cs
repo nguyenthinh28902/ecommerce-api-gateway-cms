@@ -14,7 +14,6 @@
         // Các quyền mà Service này yêu cầu (ví dụ: "openid profile personnel.read")
         public string Scope { get; set; } = string.Empty;
 
-        public string GrantType {  get; set; } = string.Empty;
-        public string RedirectUri {  get; set; } = string.Empty;
+        public string GrantType { get; set; } = string.Empty;
     }
 }

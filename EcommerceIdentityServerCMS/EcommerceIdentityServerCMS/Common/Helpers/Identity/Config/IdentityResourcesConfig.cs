@@ -1,6 +1,6 @@
 ﻿using Duende.IdentityServer.Models;
 
-namespace EcommerceIdentityServerCMS.Config
+namespace EcommerceIdentityServerCMS.Common.Helpers.Identity.Config
 {
     public static class IdentityResourcesConfig
     {

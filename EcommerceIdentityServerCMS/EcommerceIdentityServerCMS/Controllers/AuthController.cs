@@ -2,9 +2,8 @@
 using EcommerceIdentityServerCMS.Models.DTOs.SignIn;
 using EcommerceIdentityServerCMS.Models.ViewModels.Accounts;
 using EcommerceIdentityServerCMS.Services.Interfaces;
-using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
-using System.Threading.Tasks;
 
 namespace EcommerceIdentityServerCMS.Controllers
 {
@@ -46,5 +45,29 @@ namespace EcommerceIdentityServerCMS.Controllers
 
             return Ok(resultToken);
         }
+
+
+
+        [HttpPost("dang-xuat-he-thong")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ConfirmLogout([FromForm] LogoutViewModel model)
+        {
+            // Xóa Cookie của Identity Server
+            await HttpContext.SignOutAsync();
+
+            // Lấy thông tin ngữ cảnh để quay lại đúng CMS
+            var logoutContext = await _interaction.GetLogoutContextAsync(model.LogoutId);
+
+            if (logoutContext != null && !string.IsNullOrEmpty(logoutContext.PostLogoutRedirectUri))
+            {
+                // Quay về CMS (thông qua Gateway 7145)
+                return Redirect(logoutContext.PostLogoutRedirectUri);
+            }
+
+            // Nếu không có thông tin quay về, đưa về trang chủ mặc định
+            return Redirect("/");
+        }
     }
 }
+
+

@@ -29,10 +29,17 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseStaticFiles(); // Thêm dòng này nếu có giao diện Login UI
 app.UseIdentityServer();
-app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
-
+app.MapDefaultControllerRoute();
+// Gọi Seed Data
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var config = services.GetRequiredService<IConfiguration>();
+    await DatabaseInitializer.InitDatabaseAsync(services, config);
+}
 app.Run();

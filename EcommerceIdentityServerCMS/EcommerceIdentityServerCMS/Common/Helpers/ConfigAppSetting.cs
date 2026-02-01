@@ -8,6 +8,7 @@ namespace EcommerceIdentityServerCMS.Common.Helpers
         {
             services.Configure<JwtSettings>(
              configuration.GetSection("JwtSettings"));
+            services.Configure<Dictionary<string, ServiceAuthOptions>>(configuration.GetSection("ServiceAuth"));
             return services;
         }
     }
