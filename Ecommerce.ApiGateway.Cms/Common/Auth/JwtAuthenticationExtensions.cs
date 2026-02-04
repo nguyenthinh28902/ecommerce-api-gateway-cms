@@ -40,10 +40,17 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
             // 2. Cấu hình Policy sử dụng cho Routes trong proxy-config.yaml
             services.AddAuthorization(options =>
             {
-                options.AddPolicy("GatewayAuthPolicy", policy =>
-                {
-                    policy.RequireAuthenticatedUser();
-                });
+                // Policy yêu cầu quyền đọc thông tin user
+                options.AddPolicy("UserReadPolicy", policy =>
+                    policy.RequireClaim("scope", "user.read", "user.internal"));
+
+                // Policy yêu cầu quyền ghi (tạo/sửa) user
+                options.AddPolicy("UserWritePolicy", policy =>
+                    policy.RequireClaim("scope", "user.write", "user.internal"));
+
+                // Policy nội bộ (Internal) chỉ dành cho các service gọi nhau
+                options.AddPolicy("InternalPolicy", policy =>
+                    policy.RequireClaim("scope", "user.internal"));
             });
 
             return services;

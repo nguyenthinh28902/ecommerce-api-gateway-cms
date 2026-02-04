@@ -14,7 +14,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
             // Nạp file cấu hình Reverse Proxy và Identity
 
             configuration.AddYamlFile("proxy-config-identity.yaml", optional: false, reloadOnChange: true)
-                          .AddYamlFile("proxy-config-customer.yaml", optional: false, reloadOnChange: true);
+                          .AddYamlFile("proxy-config-user-service.yaml", optional: false, reloadOnChange: true);
             return services;
         }
 

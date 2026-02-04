@@ -2,7 +2,7 @@ ReverseProxy:
   Routes:
     user_service_api_route:
       ClusterId: "user_service_cluster"
-      AuthorizationPolicy: "GatewayAuthPolicy"
+      AuthorizationPolicy: "UserReadPolicy"
       Match:
         Path: "/api/tai-khoan/{**catch-all}"
       Metadata:
