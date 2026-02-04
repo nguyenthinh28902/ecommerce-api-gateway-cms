@@ -23,3 +23,10 @@
       Destinations:
         identity_node:
           Address: "https://localhost:7133"
+      Transforms:
+        - RequestHeader: X-Forwarded-For
+          Append: "{RemoteIpAddress}"
+        - RequestHeader: X-Forwarded-Proto
+          Set: "https"
+        - RequestHeader: X-Forwarded-Host
+          Set: "{Host}"
