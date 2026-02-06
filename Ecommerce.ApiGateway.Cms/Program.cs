@@ -6,8 +6,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpClient();
 // Add services to the container.
-builder.Services.Configure<IdentityServerOptions>(
-            builder.Configuration.GetSection("IdentityServerOptions"));
+builder.Services.Configure<InternalAuth>(
+            builder.Configuration.GetSection("InternalAuth"));
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();

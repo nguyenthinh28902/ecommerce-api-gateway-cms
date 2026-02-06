@@ -1,6 +1,9 @@
 ﻿using Ecommerce.ApiGateway.Cms.Models.Settings;
+using Ecommerce.ApiGateway.Cms.Service.Interfaces;
+using Ecommerce.ApiGateway.Cms.Service.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
 
 namespace Ecommerce.ApiGateway.Cms.Common.Auth
 {
@@ -10,15 +13,17 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
             this IServiceCollection services,
             IConfiguration configuration)
         {
+            JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
             // 1. Lấy cấu hình Jwt từ appsettings.reverseproxy.identity.json
-            var jwtSettings = configuration.GetSection("Jwt").Get<JwtSettings>()
+            var internalAuth = configuration.GetSection(nameof(InternalAuth)).Get<InternalAuth>()
                 ?? throw new InvalidOperationException("JwtSettings missing in configuration");
+            services.AddScoped<ITokenClientService, TokenClientService>();
 
             services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(options =>
                 {
                     // IdentityServer URL
-                    options.Authority = jwtSettings.Issuer;
+                    options.Authority = internalAuth.Issuer;
                     options.RequireHttpsMetadata = false; // Dev mode
 
                     // BẮT BUỘC: Lưu token để dùng trong AddTransforms (Token Relay)
@@ -26,29 +31,21 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
 
                     options.TokenValidationParameters = new TokenValidationParameters {
                         ValidateIssuer = true,
-                        ValidIssuer = jwtSettings.Issuer,
-
-                        // Thường Gateway không cần check Audience của các service con 
-                        // nhưng cần check Audience của chính nó nếu có cấu hình
-                        ValidateAudience = false,
+                        ValidIssuer = internalAuth.Issuer,
+                        ValidateAudience = false, // gateway không kiểm tra audience
 
                         ValidateLifetime = true,
-                        ClockSkew = TimeSpan.Zero // Khớp thời gian chính xác giữa Gateway và IdentityServer
+                        ClockSkew = TimeSpan.FromSeconds(20),// Khớp thời gian chính xác giữa Gateway và IdentityServer
                     };
                 });
 
             // 2. Cấu hình Policy sử dụng cho Routes trong proxy-config.yaml
             services.AddAuthorization(options =>
             {
-                // Policy yêu cầu quyền đọc thông tin user
                 options.AddPolicy("UserReadPolicy", policy =>
                     policy.RequireClaim("scope", "user.read", "user.internal"));
-
-                // Policy yêu cầu quyền ghi (tạo/sửa) user
                 options.AddPolicy("UserWritePolicy", policy =>
                     policy.RequireClaim("scope", "user.write", "user.internal"));
-
-                // Policy nội bộ (Internal) chỉ dành cho các service gọi nhau
                 options.AddPolicy("InternalPolicy", policy =>
                     policy.RequireClaim("scope", "user.internal"));
             });

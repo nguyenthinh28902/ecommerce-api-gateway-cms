@@ -1,7 +1,7 @@
-﻿using Ecommerce.ApiGateway.Cms.Service.Interfaces;
+﻿using Ecommerce.ApiGateway.Cms.Models.Settings;
+using Ecommerce.ApiGateway.Cms.Service.Interfaces;
 using System.Security.Claims;
 using Yarp.ReverseProxy.Transforms;
-
 namespace Ecommerce.ApiGateway.Cms.Common.Auth
 {
     public static class GatewayExtensions
@@ -13,13 +13,13 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
         {
             // Nạp file cấu hình Reverse Proxy và Identity
 
-            configuration.AddYamlFile("proxy-config-identity.yaml", optional: false, reloadOnChange: true)
-                          .AddYamlFile("proxy-config-user-service.yaml", optional: false, reloadOnChange: true);
+            configuration.AddYamlFile("proxy-config-user-service.yaml", optional: false, reloadOnChange: true);
             return services;
         }
 
         public static IServiceCollection AddGatewayProxy(this IServiceCollection services, IConfiguration configuration)
         {
+            var authSettings = configuration.GetSection("InternalAuthHeader").Get<InternalAuthHeader>();
             services.AddReverseProxy()
             .LoadFromConfig(configuration.GetSection("ReverseProxy"))
             .AddTransforms(builderContext =>
@@ -50,10 +50,21 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                             });
 
                             // 3. QUAN TRỌNG: Ngắt luồng tại đây để YARP không chuyển tiếp request đi nữa
+                            // Lấy Feature để báo ngắt Proxy
+                            transformContext.HttpContext.Items["Yarp.ReverseProxy.Model.IHttpProxyFeature"] = null;
+
+                            // Hoặc cách "chính thống" hơn nếu ný đã using Yarp.ReverseProxy.Forwarder:
+                            // transformContext.HttpContext.Features.Set<IHttpProxyFeature>(null);
+
                             return;
                         }
                         // 3. Truyền xuống Service qua Header (Không truyền ngược vào Token để giữ Token gọn)
                         transformContext.ProxyRequest.Headers.Add("X-User-Id", sub);
+
+                        if (!string.IsNullOrEmpty(userInfo?.Email))
+                        {
+                            transformContext.ProxyRequest.Headers.Add("X-User-Email", userInfo.Email);
+                        }
                         if (userInfo?.Roles != null && userInfo.Roles.Any())
                         {
                             // Chuyển List<string> thành "Admin,Manager,Editor"
@@ -63,6 +74,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                             transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Roles", rolesString);
                         } // Ví dụ: "Admin,Manager"
                         transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceId", userInfo.WorkplaceId.ToString());
+
                         // --- PHẦN 2: XIN TOKEN MỚI (SERVICE-TO-SERVICE) ---
                         // Gateway dùng danh nghĩa "hệ thống" để gọi các service phía sau
                         var tokenService = transformContext.HttpContext.RequestServices.GetRequiredService<ITokenClientService>();
@@ -72,8 +84,6 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                         transformContext.ProxyRequest.Headers.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", systemToken);
                     }
-
-
                 });
             });
             return services;

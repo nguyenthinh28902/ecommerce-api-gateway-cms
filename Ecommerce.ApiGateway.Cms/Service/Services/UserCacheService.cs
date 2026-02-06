@@ -1,4 +1,5 @@
-﻿using Ecommerce.ApiGateway.Cms.Models.Auths;
+﻿using Ecommerce.ApiGateway.Cms.Models;
+using Ecommerce.ApiGateway.Cms.Models.Auths;
 using Ecommerce.ApiGateway.Cms.Service.Interfaces;
 using Microsoft.Extensions.Caching.Distributed;
 using System.Text.Json;
@@ -8,6 +9,8 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
     public class UserCacheService : IUserCacheService
     {
         private readonly IDistributedCache _cache;
+        // Đây là "vùng tên" riêng cho Identity để không lẫn với UserSession của Gateway
+        private const string IDENTITY_INTERNAL_PREFIX = "InternalAuth:";
 
         public UserCacheService(IDistributedCache cache)
         {
@@ -17,7 +20,7 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
         public async Task<UserInternalInfo?> GetUserInfoAsync(string userId)
         {
             // Key trong Redis: ví dụ "user_info:123"
-            var cacheKey = $"user_info:{userId}";
+            var cacheKey = $"{IDENTITY_INTERNAL_PREFIX}{AuthCacheOptions.CacheUserInfor}{userId}";
             var jsonData = await _cache.GetStringAsync(cacheKey);
 
             if (string.IsNullOrEmpty(jsonData)) return null;

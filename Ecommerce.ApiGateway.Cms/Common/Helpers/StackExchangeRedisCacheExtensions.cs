@@ -21,8 +21,6 @@ namespace Ecommerce.ApiGateway.Cms.Common.Helpers
 
             // Đăng ký Service xử lý cache user (như đã bàn ở bước trước)
             services.AddScoped<IUserCacheService, UserCacheService>();
-            // Đăng ký Service của bạn
-            services.AddScoped<ITokenClientService, TokenClientService>();
             return services;
         }
     }

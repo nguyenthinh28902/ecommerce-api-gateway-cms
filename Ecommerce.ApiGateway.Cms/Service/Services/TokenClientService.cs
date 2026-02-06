@@ -10,13 +10,13 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _cache;
-        private readonly IdentityServerOptions _options;
+        private readonly InternalAuth _options;
         private const string CacheKey = "gateway_internal_token";
 
         public TokenClientService(
             IHttpClientFactory httpClientFactory,
             IDistributedCache cache,
-            IOptions<IdentityServerOptions> options)
+            IOptions<InternalAuth> options)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
@@ -40,7 +40,7 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
             { "scope", _options.Scopes }
         };
 
-            var tokenUrl = $"{_options.Authority.TrimEnd('/')}/connect/token";
+            var tokenUrl = $"{_options.Issuer.TrimEnd('/')}/connect/token";
 
             try
             {
