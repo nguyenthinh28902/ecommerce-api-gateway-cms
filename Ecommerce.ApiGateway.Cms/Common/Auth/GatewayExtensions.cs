@@ -14,6 +14,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
             // Nạp file cấu hình Reverse Proxy và Identity
 
             configuration.AddYamlFile("proxy-config-user-service.yaml", optional: false, reloadOnChange: true);
+            configuration.AddYamlFile("proxy-config-product-service.yaml", optional: false, reloadOnChange: true);
             return services;
         }
 
@@ -69,9 +70,11 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                         {
                             // Chuyển List<string> thành "Admin,Manager,Editor"
                             var rolesString = string.Join(",", userInfo.Roles);
+                            var scopesString = string.Join(",", userInfo.Scopes);
 
                             // Sử dụng TryAddWithoutValidation để tránh lỗi format header
                             transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Roles", rolesString);
+                            transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Scopes", scopesString);
                         } // Ví dụ: "Admin,Manager"
                         transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceId", userInfo.WorkplaceId.ToString());
 
@@ -79,7 +82,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                         // Gateway dùng danh nghĩa "hệ thống" để gọi các service phía sau
                         var tokenService = transformContext.HttpContext.RequestServices.GetRequiredService<ITokenClientService>();
                         var systemToken = await tokenService.GetSystemTokenAsync();
-
+                        
                         // Ghi đè hoặc thêm Token hệ thống vào Header Authorization
                         transformContext.ProxyRequest.Headers.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", systemToken);

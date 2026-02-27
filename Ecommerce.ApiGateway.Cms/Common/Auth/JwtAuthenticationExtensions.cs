@@ -33,7 +33,6 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                         ValidateIssuer = true,
                         ValidIssuer = internalAuth.Issuer,
                         ValidateAudience = false, // gateway không kiểm tra audience
-
                         ValidateLifetime = true,
                         ClockSkew = TimeSpan.FromSeconds(20),// Khớp thời gian chính xác giữa Gateway và IdentityServer
                     };
@@ -48,6 +47,8 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                     policy.RequireClaim("scope", "user.write", "user.internal"));
                 options.AddPolicy("InternalPolicy", policy =>
                     policy.RequireClaim("scope", "user.internal"));
+                options.AddPolicy("ProductPolicy", policy =>
+                    policy.RequireClaim("scope", "product.read", "product.write", "product.internal"));
             });
 
             return services;

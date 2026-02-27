@@ -3,7 +3,7 @@ using Ecommerce.ApiGateway.Cms.Common.Helpers;
 using Ecommerce.ApiGateway.Cms.Models.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
-
+Console.OutputEncoding = System.Text.Encoding.UTF8;
 builder.Services.AddHttpClient();
 // Add services to the container.
 builder.Services.Configure<InternalAuth>(

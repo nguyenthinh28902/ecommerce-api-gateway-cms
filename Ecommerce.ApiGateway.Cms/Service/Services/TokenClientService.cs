@@ -60,7 +60,7 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
                     var cacheOptions = new DistributedCacheEntryOptions {
                         AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(tokenResult.ExpiresIn - 30)
                     };
-
+                    
                     await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
                     return tokenResult.AccessToken;
                 }
