@@ -27,19 +27,29 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
             {
                 builderContext.AddRequestTransform(async transformContext =>
                 {
-                    // 1. Lấy sub (User ID) từ Token ban đầu
-                    var user = transformContext.HttpContext.User;
-                    var sub = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
+                    //service get token service-to-service 
+                    var tokenService = transformContext.HttpContext.RequestServices.GetRequiredService<ITokenClientService>();
+                    var systemToken = string.Empty;
+                    var loggerFactory = transformContext.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>();
+                    var logger = loggerFactory.CreateLogger("GatewayAuthTransform");
+                    // 1. Lấy sub (User ID) từ Token ban đầu
+                    var claim = transformContext.HttpContext.User;
+                    var clientId = claim.FindFirst("client_id")?.Value;
+                    if (clientId == "IdentityServer")
+                    {
+                        logger.LogInformation(">>> [GATEWAY] Internal call detected from {ClientId}. Bypassing transform.", clientId);
+                        return; 
+                    }
+                    var sub = claim.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                     if (!string.IsNullOrEmpty(sub))
                     {
-                        // 2. KỸ THUẬT ĐÚNG: Load thông tin chi tiết (nên dùng Redis để nhanh)
-                        // Giả sử bạn có UserService hoặc Redis lưu thông tin user theo sub
-                        var userCache = transformContext.HttpContext.RequestServices.GetRequiredService<IUserCacheService>();
-                        var userInfo = await userCache.GetUserInfoAsync(sub);
+                        //Get thông tin người dùng từ Service (hoặc cache nếu có) để truyền xuống Service phía sau qua Header
+                        var userSerivce = transformContext.HttpContext.RequestServices.GetRequiredService<IUserService>();
+                        var userInfo = await userSerivce.GetUserInfoAsync(sub);
                         if (userInfo == null)
                         {
-                            // 1. Gán mã trạng thái 401 (hoặc 403 tùy logic của bạn)
+                            logger.LogInformation(">>> [GATEWAY] Cache miss for user {Sub}. Fetching from Service...", sub);
                             transformContext.HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
 
                             // 2. Tùy chọn: Trả về một thông điệp JSON để Client (Nuxt/Mobile) dễ xử lý
@@ -49,15 +59,9 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                                 error = "Unauthorized",
                                 message = "Không tìm thấy thông tin người dùng trong hệ thống hoặc đã hết hạn."
                             });
-
-                            // 3. QUAN TRỌNG: Ngắt luồng tại đây để YARP không chuyển tiếp request đi nữa
-                            // Lấy Feature để báo ngắt Proxy
                             transformContext.HttpContext.Items["Yarp.ReverseProxy.Model.IHttpProxyFeature"] = null;
 
-                            // Hoặc cách "chính thống" hơn nếu ný đã using Yarp.ReverseProxy.Forwarder:
-                            // transformContext.HttpContext.Features.Set<IHttpProxyFeature>(null);
-
-                            return;
+                          return;
                         }
                         // 3. Truyền xuống Service qua Header (Không truyền ngược vào Token để giữ Token gọn)
                         transformContext.ProxyRequest.Headers.Add("X-User-Id", sub);
@@ -75,14 +79,17 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                             // Sử dụng TryAddWithoutValidation để tránh lỗi format header
                             transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Roles", rolesString);
                             transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Scopes", scopesString);
-                        } // Ví dụ: "Admin,Manager"
-                        transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceId", userInfo.WorkplaceId.ToString());
 
+                        } 
+                        if (userInfo?.WorkplaceId != null)
+                        {
+                            transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceId", userInfo.WorkplaceId.ToString());
+                        }
                         // --- PHẦN 2: XIN TOKEN MỚI (SERVICE-TO-SERVICE) ---
                         // Gateway dùng danh nghĩa "hệ thống" để gọi các service phía sau
-                        var tokenService = transformContext.HttpContext.RequestServices.GetRequiredService<ITokenClientService>();
-                        var systemToken = await tokenService.GetSystemTokenAsync();
-                        
+
+                        systemToken = await tokenService.GetSystemTokenAsync();
+                        logger.LogInformation("New System Token (Service-to-Service): Bearer {Token}", systemToken);
                         // Ghi đè hoặc thêm Token hệ thống vào Header Authorization
                         transformContext.ProxyRequest.Headers.Authorization =
                             new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", systemToken);

@@ -51,6 +51,11 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                     policy.RequireClaim("scope", "product.read", "product.write", "product.internal"));
             });
 
+            services.AddHttpClient<IUserService, UserSerivce>(client =>
+            {
+                var url = configuration["InternalServices:UserService"] ?? string.Empty;
+                client.BaseAddress = new Uri(url);
+            });
             return services;
         }
     }
