@@ -1,0 +1,14 @@
+ReverseProxy:
+  Routes:
+    order_service_api_route:
+      ClusterId: "order_service_cluster"
+      AuthorizationPolicy: "OrderPolicy"
+      Match:
+        Path: "/api/don-hang/quan-ly/{**catch-all}"
+      Metadata:
+        serviceName: "OrderCMSService"
+  Clusters:
+    order_service_cluster: # Phải khớp với ClusterId ở trên
+      Destinations:
+        order_service_node:
+          Address: "https://localhost:7051" # Kiểm tra lại Port thực tế của order Service

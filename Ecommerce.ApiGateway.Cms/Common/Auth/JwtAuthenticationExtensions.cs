@@ -49,6 +49,8 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                     policy.RequireClaim("scope", "user.internal"));
                 options.AddPolicy("ProductPolicy", policy =>
                     policy.RequireClaim("scope", "product.read", "product.write", "product.internal"));
+                options.AddPolicy("OrderPolicy", policy =>
+                    policy.RequireClaim("scope", "order.read", "order.write", "order.internal"));
             });
 
             services.AddHttpClient<IUserService, UserSerivce>(client =>

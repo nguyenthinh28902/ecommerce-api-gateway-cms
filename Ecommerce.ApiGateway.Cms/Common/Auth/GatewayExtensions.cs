@@ -15,6 +15,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
 
             configuration.AddYamlFile("proxy-config-user-service.yaml", optional: false, reloadOnChange: true);
             configuration.AddYamlFile("proxy-config-product-service.yaml", optional: false, reloadOnChange: true);
+            configuration.AddYamlFile("proxy-config-order-service.yaml", optional: false, reloadOnChange: true);
             return services;
         }
 
@@ -84,6 +85,7 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                         if (userInfo?.WorkplaceId != null)
                         {
                             transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceId", userInfo.WorkplaceId.ToString());
+                            transformContext.ProxyRequest.Headers.Add("X-User-WorkplaceType", userInfo.WorkplaceType);
                         }
                         // --- PHẦN 2: XIN TOKEN MỚI (SERVICE-TO-SERVICE) ---
                         // Gateway dùng danh nghĩa "hệ thống" để gọi các service phía sau
