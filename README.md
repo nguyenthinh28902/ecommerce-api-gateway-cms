@@ -3,6 +3,9 @@
 ## Giới thiệu
 
 Điều hướng đến các dịch vụ logic cho dự án
+### Thông tin chung của dự án
+[Thông tin chung dự án](https://github.com/nguyenthinh28902/mini-project-ecommerce).
+
 
 ## 🛠 Công nghệ sử dụng
 - **Framework:** .NET Core Api, **YARP**.
