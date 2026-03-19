@@ -10,25 +10,35 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
     {
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IDistributedCache _cache;
+        private readonly ILogger<TokenClientService> _logger;
         private readonly InternalAuth _options;
         private const string CacheKey = "gateway_internal_token";
 
         public TokenClientService(
             IHttpClientFactory httpClientFactory,
             IDistributedCache cache,
-            IOptions<InternalAuth> options)
+            IOptions<InternalAuth> options,
+            ILogger<TokenClientService> logger)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _options = options.Value;
+            _logger = logger;
         }
 
         public async Task<string> GetSystemTokenAsync()
         {
             // 1. Kiểm tra Token trong Redis
-            var cachedToken = await _cache.GetStringAsync(CacheKey);
-            if (!string.IsNullOrEmpty(cachedToken)) return cachedToken;
+            try
+            {
+                var cachedToken = await _cache.GetStringAsync(CacheKey);
+                if (!string.IsNullOrEmpty(cachedToken)) return cachedToken;
 
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Lỗi cache: {mess}",ex.Message);
+            }
             // 2. Chuẩn bị request xin token mới
             var client = _httpClientFactory.CreateClient();
 
@@ -58,10 +68,17 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
                 {
                     // 3. Lưu vào Cache (Trừ 30 giây trừ hao thời gian mạng)
                     var cacheOptions = new DistributedCacheEntryOptions {
-                        AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(tokenResult.ExpiresIn - 30)
+                        AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(4)
                     };
-                    
-                    await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
+
+                    try
+                    {
+                        await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError("Lỗi cache: {mess}", ex.Message);
+                    }
                     return tokenResult.AccessToken;
                 }
             }

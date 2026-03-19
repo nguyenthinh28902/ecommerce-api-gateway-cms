@@ -40,12 +40,12 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
                     new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", systemToken);
                 _httpClient.DefaultRequestHeaders.Add("X-User-Id", sub);
 
-                // 3. Call API sang Customer Service (ví dụ route: /api/internal/user/{sub})
+                // 3. Call API sang Customer Service
                 var response = await _httpClient.GetAsync($"/api/xac-thuc/thong-tin-xac-thuc-nhan-su");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    // Sử dụng Result<T> ný đã định nghĩa để map dữ liệu
+                    // Sử dụng Result<T> đã định nghĩa để map dữ liệu
                     var result = await response.Content.ReadFromJsonAsync<UserInternalInfo>();
 
                     if (result != null)

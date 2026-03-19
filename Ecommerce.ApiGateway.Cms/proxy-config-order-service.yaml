@@ -11,4 +11,4 @@ ReverseProxy:
     order_service_cluster: # Phải khớp với ClusterId ở trên
       Destinations:
         order_service_node:
-          Address: "https://localhost:7051" # Kiểm tra lại Port thực tế của order Service
+          Address: "https://localhost:7051" 

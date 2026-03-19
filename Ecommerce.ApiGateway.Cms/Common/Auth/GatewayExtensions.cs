@@ -36,12 +36,6 @@ namespace Ecommerce.ApiGateway.Cms.Common.Auth
                     var logger = loggerFactory.CreateLogger("GatewayAuthTransform");
                     // 1. Lấy sub (User ID) từ Token ban đầu
                     var claim = transformContext.HttpContext.User;
-                    var clientId = claim.FindFirst("client_id")?.Value;
-                    if (clientId == "IdentityServer")
-                    {
-                        logger.LogInformation(">>> [GATEWAY] Internal call detected from {ClientId}. Bypassing transform.", clientId);
-                        return; 
-                    }
                     var sub = claim.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                     if (!string.IsNullOrEmpty(sub))
                     {
