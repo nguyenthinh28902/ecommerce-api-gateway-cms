@@ -1,6 +1,7 @@
 ﻿using Ecommerce.ApiGateway.Cms.Models.Settings;
 using Ecommerce.ApiGateway.Cms.Service.Interfaces;
 using Ecommerce.ApiGateway.Cms.Service.Services;
+using StackExchange.Redis;
 
 namespace Ecommerce.ApiGateway.Cms.Common.Helpers
 {
@@ -9,6 +10,8 @@ namespace Ecommerce.ApiGateway.Cms.Common.Helpers
         public static IServiceCollection AddStackExchangeRedis(this IServiceCollection services, IConfiguration configuration)
         {
             // 1. Mapping từ Section "RedisConnection" trong appsettings vào Model
+            services.Configure<RedisConnection>(configuration.GetSection("RedisConfig"));
+
             var redisSettings = configuration.GetSection("RedisConfig").Get<RedisConnection>()
                 ?? throw new InvalidOperationException("RedisConfig configuration is missing.");
 
@@ -17,6 +20,14 @@ namespace Ecommerce.ApiGateway.Cms.Common.Helpers
             {
                 options.Configuration = redisSettings.RedisConnectionString;
                 options.InstanceName = redisSettings.GatewayInstance;
+                var configOptions = ConfigurationOptions.Parse(redisSettings.RedisConnectionString);
+                configOptions.ConnectTimeout = 1000;
+                configOptions.SyncTimeout = 500;
+                configOptions.AsyncTimeout = 500;
+                configOptions.ConnectRetry = 0;
+                configOptions.AbortOnConnectFail = false;
+
+                options.ConfigurationOptions = configOptions;
             });
 
             // Đăng ký Service xử lý cache user (như đã bàn ở bước trước)

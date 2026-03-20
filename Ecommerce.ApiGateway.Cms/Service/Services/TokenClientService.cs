@@ -13,31 +13,37 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
         private readonly ILogger<TokenClientService> _logger;
         private readonly InternalAuth _options;
         private const string CacheKey = "gateway_internal_token";
+        private readonly RedisConnection _redisConnection;
 
         public TokenClientService(
             IHttpClientFactory httpClientFactory,
             IDistributedCache cache,
             IOptions<InternalAuth> options,
-            ILogger<TokenClientService> logger)
+            ILogger<TokenClientService> logger,
+            IOptions<RedisConnection> optionsRedis)
         {
             _httpClientFactory = httpClientFactory;
             _cache = cache;
             _options = options.Value;
             _logger = logger;
+            _redisConnection = optionsRedis.Value;
         }
 
         public async Task<string> GetSystemTokenAsync()
         {
             // 1. Kiểm tra Token trong Redis
-            try
+            if (_redisConnection.Enabled)
             {
-                var cachedToken = await _cache.GetStringAsync(CacheKey);
-                if (!string.IsNullOrEmpty(cachedToken)) return cachedToken;
+                try
+                {
+                    var cachedToken = await _cache.GetStringAsync(CacheKey);
+                    if (!string.IsNullOrEmpty(cachedToken)) return cachedToken;
 
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError("Lỗi cache: {mess}",ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError("Lỗi cache: {mess}", ex.Message);
+                }
             }
             // 2. Chuẩn bị request xin token mới
             var client = _httpClientFactory.CreateClient();
@@ -71,14 +77,18 @@ namespace Ecommerce.ApiGateway.Cms.Service.Services
                         AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(4)
                     };
 
-                    try
+                    if (_redisConnection.Enabled)
                     {
-                        await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
+                        try
+                        {
+                            await _cache.SetStringAsync(CacheKey, tokenResult.AccessToken, cacheOptions);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError("Lỗi cache: {mess}", ex.Message);
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError("Lỗi cache: {mess}", ex.Message);
-                    }
+                        
                     return tokenResult.AccessToken;
                 }
             }
