@@ -23,7 +23,9 @@ Hệ thống API Gateway được xây dựng trên nền tảng **YARP (Yet Ano
 ## 🛠 Công nghệ & Giải pháp hạ tầng
 - **Core Engine:** .NET Core API & **YARP**.
 - **Security:** JWT Bearer Authentication & Policy-based Authorization.
-- **Performance:** Redis Cache (Docker) để lưu trữ thông tin định danh và tối ưu hóa việc cấp phát Token.
+- **Performance:**
+    - **Redis Cache (Docker):** Lưu trữ thông tin định danh và tối ưu hóa cấp phát Token.
+    - **Redis Rate Limiting:** Kiểm soát lưu lượng truy cập tập trung, ngăn chặn spam và đảm bảo tính ổn định cho toàn bộ hệ thống Microservices.
 - **Data Access:** Entity Framework Core & SQL Server.
 
 ---
@@ -78,5 +80,68 @@ transformContext.ProxyRequest.Headers.TryAddWithoutValidation("X-User-Roles", ro
 var systemToken = await tokenService.GetSystemTokenAsync();
 transformContext.ProxyRequest.Headers.Authorization = 
     new AuthenticationHeaderValue("Bearer", systemToken);
+```
+
+### 4. Distributed Rate Limiting & Guest Identification (Kiểm soát lưu lượng & Định danh khách)
+Hệ thống kết hợp giữa định danh thiết bị vãng lai và định danh người dùng để chặn đứng các hành vi spam API và khai thác dữ liệu trái phép.
+
+* **Cấp phát Định danh (Guest ID):** Sử dụng Middleware để cấp Cookie định danh cho khách chưa đăng nhập. Khi người dùng login, hệ thống tự động dọn dẹp Cookie này để đồng bộ hóa định danh theo Token.
+* **Phân loại phản hồi (Smart Rejection):** Gateway phân biệt lỗi dựa trên Metadata của Partition. Nếu yêu cầu vi phạm chính sách tại vùng cần xác thực, hệ thống trả về 401 Unauthorized. Nếu vi phạm tần suất, trả về 429 Too Many Requests.
+
+#### 📂 Tài liệu kỹ thuật:
+* [Cấu hình Middleware định danh (GuestIdentifierMiddleware.cs)](https://github.com/nguyenthinh28902/ecommerce-api-gateway/blob/main/Ecom.ApiGateway/Common/Middleware/GuestIdentifierMiddleware.cs)
+* [Cấu hình Policy & Rate Limit (RedisRateLimitExtentions.cs)](https://github.com/nguyenthinh28902/ecommerce-api-gateway/blob/main/Ecom.ApiGateway/Common/Helpers/RedisRateLimitExtentions.cs)
+
+#### 🛠 Chi tiết triển khai:
+
+[**A. Guest Identification Middleware**](https://github.com/nguyenthinh28902/ecommerce-api-gateway/blob/main/Ecom.ApiGateway/Common/Middleware/GuestIdentifierMiddleware.cs)
+```csharp
+// Chỉ cấp Cookie nếu chưa Login và chưa có Cookie định danh
+if (!isAuthenticated) {
+    if (!context.Request.Cookies.ContainsKey("X-Guest-DeviceId")) {
+        string guestId = Guid.NewGuid().ToString();
+        var cookieOptions = new CookieOptions {
+            HttpOnly = true, Secure = true, SameSite = SameSiteMode.Strict,
+            Expires = DateTimeOffset.UtcNow.AddDays(7)
+        };
+        context.Response.Cookies.Append("X-Guest-DeviceId", guestId, cookieOptions);
+        context.Request.Headers["X-Internal-Guest-Id"] = guestId;
+    }
+} else {
+    // Đã đăng nhập -> Xóa Cookie định danh khách (vì đã có sub)
+    if (context.Request.Cookies.ContainsKey("X-Guest-DeviceId")) {
+        context.Response.Cookies.Delete("X-Guest-DeviceId");
+    }
+}
+```
+[**B. Smart Rate Limit Policy**](https://github.com/nguyenthinh28902/ecommerce-api-gateway/blob/main/Ecom.ApiGateway/Common/Helpers/RedisRateLimitExtentions.cs)
+```csharp
+// Policy linh hoạt: Ưu tiên User ID > Guest ID > IP Address
+options.AddPolicy("ratelimit-basic-policy", context => {
+    var id = GetUserSub(context) 
+             ?? context.Request.Cookies["X-Guest-DeviceId"]
+             ?? context.Request.Headers["X-Internal-Guest-Id"].ToString()
+             ?? context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+    return RateLimitPartition.GetSlidingWindowLimiter(id, _ => new SlidingWindowRateLimiterOptions {
+        PermitLimit = 100, Window = TimeSpan.FromMinutes(1), SegmentsPerWindow = 4, QueueLimit = 0
+    });
+});
+```
+[**C. Centralized Rejection Logic**](https://github.com/nguyenthinh28902/ecommerce-api-gateway/blob/main/Ecom.ApiGateway/Common/Helpers/RedisRateLimitExtentions.cs)
+```csharp
+// Phân biệt giữa 401 (Chưa login) và 429 (Quá nhanh) dựa trên ResourceName
+options.OnRejected = async (context, token) => {
+    context.Lease.TryGetMetadata("CommonMetadataName.ResourceName", out var resource);
+    bool isUnauthorized = resource?.ToString() == "unauthorized_user";
+
+    if (isUnauthorized) {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await context.HttpContext.Response.WriteAsync("Ný chưa đăng nhập thì sao phục vụ được!", token);
+    } else {
+        context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+        await context.HttpContext.Response.WriteAsync("Thao tác quá nhanh ný ơi, bình tĩnh tí nào!", token);
+    }
+};
 ```
 ---
