@@ -18,7 +18,6 @@ Hệ thống API Gateway được xây dựng trên nền tảng **YARP (Yet Ano
   * [Cấu hình tại Product Service](https://github.com/nguyenthinh28902/Ecom.ProductService)
 
 ---
----
 
 ## 🛠 Công nghệ & Giải pháp hạ tầng
 - **Core Engine:** .NET Core API & **YARP**.
