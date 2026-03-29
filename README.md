@@ -34,7 +34,7 @@ Hệ thống API Gateway được xây dựng trên nền tảng **YARP (Yet Ano
 ### 1. Centralized JWT Validation (Xác thực JWT tập trung)
 Gateway đóng vai trò là chốt chặn đầu tiên để kiểm tra tính hợp lệ của Token từ Identity Server.
 
-* **File:** [JwtAuthenticationExtensions.cs](https://github.com/nguyenthinh28902/ecommerce-api-gateway-cms/blob/main/Ecommerce.ApiGateway.Cms/Common/Auth/JwtAuthenticationExtensions.cs)
+* **File:** [JwtAuthenticationExtensions.cs](https://github.com/nguyenthinh28902/ecommerce-api-gateway-cms/blob/main/Ecommerce.ApiGateway.Cms/Common/Auth/JwtAuthenticationExtensions.cs#L22)
 * **Giải pháp:** Cấu hình `SaveToken = true` để duy trì ngữ cảnh xác thực và thiết lập `ClockSkew` cực ngắn (20 giây) để đảm bảo sự đồng bộ thời gian tuyệt đối với Identity Server.
 
 ```csharp
@@ -65,7 +65,7 @@ options.AddPolicy("ProductPolicy", policy =>
 ### 3. Identity Transformation & Token Exchange (Chuyển đổi định danh)
 Đây là kỹ thuật quan trọng nhất giúp Gateway bảo mật thông tin người dùng và thực hiện giao tiếp Service-to-Service.
 
-* **File:** [GatewayExtensions.cs](https://github.com/nguyenthinh28902/ecommerce-api-gateway-cms/blob/main/Ecommerce.ApiGateway.Cms/Common/Auth/GatewayExtensions.cs)
+* **File:** [GatewayExtensions.cs](https://github.com/nguyenthinh28902/ecommerce-api-gateway-cms/blob/main/Ecommerce.ApiGateway.Cms/Common/Auth/GatewayExtensions.cs#L29)
 * **Giải pháp:** * **Header Transformation:** Gateway tự động trích xuất Claims (Roles, Email, WorkplaceId) từ cache và đính kèm vào Header `X-User-*`.
     * **Token Exchange:** Gateway sử dụng Client Credentials riêng để hoán đổi lấy một **System Token** mới, dùng để gọi các dịch vụ Backend.
 
